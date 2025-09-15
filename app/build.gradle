@@ -86,7 +86,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply plugin: 'com.google.protobuf'
 apply plugin: 'atak-takdev-plugin'
-apply from: "../gradle/typst.gradle"
+//apply from: "../gradle/typst.gradle"
 
 
  
