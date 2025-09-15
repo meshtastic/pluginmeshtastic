@@ -1,0 +1,66 @@
+# === Android / Gradle ===
+
+# Gradle files
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/libraries
+.idea/caches/
+.idea/modules.xml
+.idea/assetWizardSettings.xml
+.idea/navEditor.xml
+.idea/gradle.xml
+.idea/misc.xml
+
+# Keystore files
+*.jks
+*.keystore
+
+# Log files
+*.log
+
+# Android packaging
+*.apk
+*.ap_
+*.aab
+
+# Proguard
+proguard/
+
+# Android specific generated files
+captures/
+.externalNativeBuild/
+.cxx/
+outputs/
+
+# App bundles
+*.aab
+
+# NDK
+obj/
+.libs/
+
+# === macOS ===
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in macOS volumes
+.Spotlight-V100
+.Trashes
+.fseventsd
+

@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FF1E1E1E">
+
+    <!-- Header
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Meshtastic Plugin"
+        android:textSize="20sp"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:padding="16dp"
+        android:background="#FF2A2A2A" />
+-->
+    <!-- Tab Host -->
+    <TabHost
+        android:id="@android:id/tabhost"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <!-- Tab Widget -->
+            <TabWidget
+                android:id="@android:id/tabs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="#FF333333" />
+
+            <!-- Frame Layout for Tab Content -->
+            <FrameLayout
+                android:id="@android:id/tabcontent"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="16dp">
+
+                <!-- Connection Tab -->
+                <LinearLayout
+                    android:id="@+id/tab_connection"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
+
+                    <!-- Connection Status -->
+                    <TextView
+                        android:id="@+id/connection_status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Status: Disconnected"
+                        android:textSize="14sp"
+                        android:textColor="#FFFF0000"
+                        android:gravity="center"
+                        android:paddingBottom="8dp" />
+
+                    <!-- Control Buttons -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingBottom="8dp">
+
+                        <Button
+                            android:id="@+id/btn_scan"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Scan for Devices"
+                            android:textColor="#FFFFFF"
+                            android:backgroundTint="#FF0066CC"
+                            android:layout_marginEnd="4dp" />
+
+                        <Button
+                            android:id="@+id/btn_disconnect"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Disconnect"
+                            android:textColor="#FFFFFF"
+                            android:backgroundTint="#FFCC0000"
+                            android:layout_marginStart="4dp"
+                            android:enabled="false" />
+
+                    </LinearLayout>
+
+                    <!-- Scan Progress -->
+                    <ProgressBar
+                        android:id="@+id/scan_progress"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:indeterminate="true"
+                        android:visibility="gone"
+                        android:paddingBottom="8dp" />
+
+                    <!-- Status Text -->
+                    <TextView
+                        android:id="@+id/status_text"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Ready to scan"
+                        android:textSize="12sp"
+                        android:textColor="#FFAAAAAA"
+                        android:paddingBottom="8dp" />
+
+                    <!-- Divider -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="#FF444444"
+                        android:layout_marginBottom="8dp" />
+
+                    <!-- Device List Header -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Available Devices"
+                        android:textSize="16sp"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:paddingBottom="8dp" />
+
+                    <!-- Device List -->
+                    <ListView
+                        android:id="@+id/device_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:divider="#FF444444"
+                        android:dividerHeight="1dp"
+                        android:scrollbars="vertical"
+                        android:fadeScrollbars="false" />
+
+                    <!-- Info Text -->
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Tap a device to connect"
+                        android:textSize="11sp"
+                        android:textColor="#FF888888"
+                        android:gravity="center"
+                        android:paddingTop="8dp" />
+
+                </LinearLayout>
+
+                <!-- Status Tab -->
+                <ScrollView
+                    android:id="@+id/tab_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- Connection Details Card -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:background="#FF2A2A2A"
+                            android:padding="12dp"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Connection Details"
+                                android:textSize="16sp"
+                                android:textColor="#FFFFFF"
+                                android:textStyle="bold"
+                                android:paddingBottom="8dp" />
+
+                            <TextView
+                                android:id="@+id/connection_type"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Type: Disconnected"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_address"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Address: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_name"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Name: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA" />
+
+                        </LinearLayout>
+
+                        <!-- Signal Info Card -->
+                        <LinearLayout
+                            android:id="@+id/signal_info_card"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:background="#FF2A2A2A"
+                            android:padding="12dp"
+                            android:layout_marginBottom="8dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Signal Quality"
+                                android:textSize="16sp"
+                                android:textColor="#FFFFFF"
+                                android:textStyle="bold"
+                                android:paddingBottom="8dp" />
+
+                            <TextView
+                                android:id="@+id/signal_strength"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="RSSI: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/connection_state"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="State: Disconnected"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA" />
+
+                        </LinearLayout>
+
+                        <!-- Statistics Card -->
+                        <LinearLayout
+                            android:id="@+id/stats_card"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:background="#FF2A2A2A"
+                            android:padding="12dp"
+                            android:layout_marginBottom="8dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Statistics"
+                                android:textSize="16sp"
+                                android:textColor="#FFFFFF"
+                                android:textStyle="bold"
+                                android:paddingBottom="8dp" />
+
+                            <TextView
+                                android:id="@+id/messages_sent"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Messages Sent: 0"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/messages_received"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Messages Received: 0"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/connection_time"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Connected: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </ScrollView>
+
+                <!-- Settings Tab -->
+                <ScrollView
+                    android:id="@+id/tab_settings"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Settings"
+                            android:textSize="18sp"
+                            android:textColor="#FFFFFF"
+                            android:textStyle="bold"
+                            android:paddingBottom="16dp" />
+
+                        <!-- Channel Security Settings Card -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:background="#FF2A2A2A"
+                            android:padding="12dp"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Channel Security"
+                                android:textSize="16sp"
+                                android:textColor="#FFFFFF"
+                                android:textStyle="bold"
+                                android:paddingBottom="8dp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Channel Password (PSK)"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <EditText
+                                android:id="@+id/channel_password"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:hint="Enter channel password"
+                                android:inputType="textPassword"
+                                android:textColor="#FFFFFF"
+                                android:textColorHint="#FF666666"
+                                android:backgroundTint="#FF666666"
+                                android:paddingBottom="8dp" />
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Password will be applied to the default channel upon connection"
+                                android:textSize="12sp"
+                                android:textColor="#FF888888"
+                                android:paddingBottom="8dp" />
+
+                            <Button
+                                android:id="@+id/btn_save_password"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Save Password"
+                                android:textColor="#FFFFFF"
+                                android:backgroundTint="#FF0066CC" />
+
+                        </LinearLayout>
+
+                        <!-- Device Metadata Card -->
+                        <LinearLayout
+                            android:id="@+id/device_metadata_card"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:background="#FF2A2A2A"
+                            android:padding="12dp"
+                            android:layout_marginBottom="8dp">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Device Information"
+                                android:textSize="16sp"
+                                android:textColor="#FFFFFF"
+                                android:textStyle="bold"
+                                android:paddingBottom="8dp" />
+
+                            <TextView
+                                android:id="@+id/device_firmware_version"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Firmware: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_hardware_model"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Hardware: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_node_id"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Node ID: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_region"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Region: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_has_gps"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="GPS: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_roles"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Role: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_last_heard"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Last Heard: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </ScrollView>
+
+            </FrameLayout>
+
+        </LinearLayout>
+
+    </TabHost>
+
+</LinearLayout>

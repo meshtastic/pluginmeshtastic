@@ -1,0 +1,45 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="GoogleAppIndexingWarning">
+
+    <!-- Bluetooth permissions for Meshtastic communication -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    
+    <!-- USB permissions for serial communication -->
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    
+    <!-- Service permissions -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application 
+        android:allowBackup="false"
+        android:icon="@drawable/ic_meshtastic"
+        android:label="@string/app_name"
+        android:description="@string/app_desc"
+        android:theme="@style/AppTheme" >
+        <meta-data android:name="plugin-api" android:value="${atakApiVersion}"/>
+        <meta-data android:name="app_desc" android:value="@string/app_desc"/>
+
+
+       <!-- This fictitious activity entry allow for ATAK 4.6.0.2 and newer to perform 
+            plugin discovery  android devices.  If this is removed, the plugin will 
+            not be able to be discovered or loaded.  -->
+       <activity android:name="com.atakmap.app.component"
+           android:exported="true"
+           tools:ignore="MissingClass">
+           <intent-filter android:label="@string/app_name">
+              <action android:name="com.atakmap.app.component" />
+           </intent-filter>
+       </activity>
+
+
+    </application>
+
+</manifest>
