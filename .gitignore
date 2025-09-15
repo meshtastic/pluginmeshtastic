@@ -64,3 +64,8 @@ obj/
 .Trashes
 .fseventsd
 
+# ATAK Dev
+.takdev/aars
+
+# VSCode
+.vscode
