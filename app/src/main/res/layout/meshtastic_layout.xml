@@ -60,7 +60,36 @@
                         android:gravity="center"
                         android:paddingBottom="8dp" />
 
-                    <!-- Control Buttons -->
+                    <!-- Control Buttons Row 1 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingBottom="4dp">
+
+                        <Button
+                            android:id="@+id/btn_scan"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Scan Bluetooth"
+                            android:textColor="#FFFFFF"
+                            android:backgroundTint="#FF0066CC"
+                            android:layout_marginEnd="4dp" />
+
+                        <Button
+                            android:id="@+id/btn_connect_usb"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Connect USB"
+                            android:textColor="#FFFFFF"
+                            android:backgroundTint="#FF6600CC"
+                            android:layout_marginStart="4dp" />
+
+                    </LinearLayout>
+
+                    <!-- Control Buttons Row 2 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -68,24 +97,12 @@
                         android:paddingBottom="8dp">
 
                         <Button
-                            android:id="@+id/btn_scan"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="Scan for Devices"
-                            android:textColor="#FFFFFF"
-                            android:backgroundTint="#FF0066CC"
-                            android:layout_marginEnd="4dp" />
-
-                        <Button
                             android:id="@+id/btn_disconnect"
-                            android:layout_width="0dp"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:text="Disconnect"
                             android:textColor="#FFFFFF"
                             android:backgroundTint="#FFCC0000"
-                            android:layout_marginStart="4dp"
                             android:enabled="false" />
 
                     </LinearLayout>
@@ -236,13 +253,6 @@
                                 android:textColor="#FFAAAAAA"
                                 android:paddingBottom="4dp" />
 
-                            <TextView
-                                android:id="@+id/connection_state"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="State: Disconnected"
-                                android:textSize="14sp"
-                                android:textColor="#FFAAAAAA" />
 
                         </LinearLayout>
 
@@ -289,6 +299,72 @@
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:text="Connected: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA" />
+
+                        </LinearLayout>
+
+                        <!-- Device Metrics Card -->
+                        <LinearLayout
+                            android:id="@+id/device_metrics_card"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:background="#FF2A2A2A"
+                            android:padding="12dp"
+                            android:layout_marginBottom="8dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Device Metrics"
+                                android:textSize="16sp"
+                                android:textColor="#FFFFFF"
+                                android:textStyle="bold"
+                                android:paddingBottom="8dp" />
+
+                            <TextView
+                                android:id="@+id/device_battery_level"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Battery: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_voltage"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Voltage: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_uptime"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Uptime: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_channel_utilization"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Channel Utilization: N/A"
+                                android:textSize="14sp"
+                                android:textColor="#FFAAAAAA"
+                                android:paddingBottom="4dp" />
+
+                            <TextView
+                                android:id="@+id/device_air_util_tx"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Air Util TX: N/A"
                                 android:textSize="14sp"
                                 android:textColor="#FFAAAAAA" />
 

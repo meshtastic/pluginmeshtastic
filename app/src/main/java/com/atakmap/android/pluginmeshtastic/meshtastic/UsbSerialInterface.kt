@@ -1,6 +1,10 @@
 package com.atakmap.android.pluginmeshtastic.meshtastic
 
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
@@ -24,15 +28,18 @@ class UsbSerialInterface(
     
     companion object {
         private const val TAG = "UsbSerialInterface"
-        private const val BAUD_RATE = 921600
+        private const val BAUD_RATE = 115200  // Match official Meshtastic-Android
         private const val DATA_BITS = 8
         private const val STOP_BITS = UsbSerialPort.STOPBITS_1
         private const val PARITY = UsbSerialPort.PARITY_NONE
-        
-        // Protocol framing
+
+        // Protocol framing - match official implementation
         private const val START1 = 0x94.toByte()
-        private const val START2 = 0xC3.toByte()
+        private const val START2 = 0xc3.toByte()  // lowercase 'c' to match reference
         private const val MAX_PACKET_SIZE = 512
+
+        // USB permission
+        private const val ACTION_USB_PERMISSION = "com.atakmap.android.pluginmeshtastic.USB_PERMISSION"
     }
     
     private var usbManager: UsbManager? = null
@@ -54,18 +61,29 @@ class UsbSerialInterface(
     fun connect() {
         Log.i(TAG, "Connecting to USB device: $devicePath")
         _connectionState.value = BluetoothInterface.ConnectionState.CONNECTING
-        
+
         try {
-            usbManager = context.applicationContext.getSystemService(Context.USB_SERVICE) as UsbManager
+            Log.d(TAG, "Getting application context...")
+            val appContext = context.applicationContext
+            val contextToUse = if (appContext != null) {
+                Log.d(TAG, "Using application context: ${appContext.javaClass.simpleName}")
+                appContext
+            } else {
+                Log.w(TAG, "Application context is null, using provided context: ${context.javaClass.simpleName}")
+                context
+            }
+
+            Log.d(TAG, "Getting USB system service...")
+            usbManager = contextToUse.getSystemService(Context.USB_SERVICE) as UsbManager
             
             // Find the USB device
-            val device = findUsbDevice()
-            if (device == null) {
+            val foundDevice = findUsbDevice()
+            if (foundDevice == null) {
                 Log.e(TAG, "USB device not found")
                 _connectionState.value = BluetoothInterface.ConnectionState.DISCONNECTED
                 return
             }
-            
+
             // Get driver for the device
             val availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
             if (availableDrivers.isEmpty()) {
@@ -73,12 +91,22 @@ class UsbSerialInterface(
                 _connectionState.value = BluetoothInterface.ConnectionState.DISCONNECTED
                 return
             }
-            
+
             val driver = availableDrivers[0]
-            usbConnection = usbManager?.openDevice(driver.device)
-            
+            val targetDevice = driver.device
+
+            // Check if we have permission to access this device
+            if (usbManager?.hasPermission(targetDevice) != true) {
+                Log.i(TAG, "USB permission not granted for device ${targetDevice.deviceName}, requesting permission")
+                requestUsbPermission(targetDevice)
+                return
+            }
+
+            Log.d(TAG, "USB permission already granted, attempting to open connection")
+            usbConnection = usbManager?.openDevice(targetDevice)
+
             if (usbConnection == null) {
-                Log.e(TAG, "Failed to open USB connection - permission may be required")
+                Log.e(TAG, "Failed to open USB connection despite having permission")
                 _connectionState.value = BluetoothInterface.ConnectionState.DISCONNECTED
                 return
             }
@@ -86,20 +114,29 @@ class UsbSerialInterface(
             serialPort = driver.ports[0]
             serialPort?.open(usbConnection)
             serialPort?.setParameters(BAUD_RATE, DATA_BITS, STOP_BITS, PARITY)
-            
+            // Set DTR and RTS like reference implementation
+            serialPort?.dtr = true
+            serialPort?.rts = true
+
             // Start I/O manager
             ioManager = SerialInputOutputManager(serialPort, this)
             ioManager?.start()
             
             _connectionState.value = BluetoothInterface.ConnectionState.CONNECTED
-            
+
             // State will transition to CONFIGURED when MeshtasticManager receives myNodeInfo
             // or configCompleteId, just like BluetoothInterface
-            
+
             // Start write queue processor
             startWriteProcessor()
-            
+
+            // Send wake bytes before notifying connection - matches reference implementation
+            sendWakeSequence()
+
             Log.i(TAG, "USB serial connection established")
+
+            // Notify callback that connection is ready - this is critical!
+            callback.onConnect()
             
         } catch (e: Exception) {
             Log.e(TAG, "Failed to connect to USB device", e)
@@ -116,18 +153,46 @@ class UsbSerialInterface(
     
     private fun cleanup() {
         try {
+            Log.d(TAG, "Starting cleanup")
+
+            // Stop I/O manager first to prevent it from trying to use closing connections
             ioManager?.stop()
             ioManager = null
-            
+
+            // Small delay to let I/O manager finish
+            Thread.sleep(100)
+
+            // Reset DTR/RTS before closing like reference implementation
+            try {
+                serialPort?.dtr = false
+                serialPort?.rts = false
+            } catch (e: Exception) {
+                Log.d(TAG, "Error resetting DTR/RTS", e)
+            }
+
             serialPort?.close()
             serialPort = null
-            
+
             usbConnection?.close()
             usbConnection = null
-            
+
+            Log.d(TAG, "USB cleanup completed")
             scope.cancel()
         } catch (e: Exception) {
             Log.e(TAG, "Error during cleanup", e)
+        }
+    }
+
+    /**
+     * Send wake sequence to sleeping device - matches reference implementation
+     */
+    private fun sendWakeSequence() {
+        try {
+            val wakeBytes = byteArrayOf(START1, START1, START1, START1)
+            serialPort?.write(wakeBytes, 1000)
+            Log.d(TAG, "Sent wake sequence: 4 START1 bytes")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to send wake sequence", e)
         }
     }
     
@@ -271,10 +336,129 @@ class UsbSerialInterface(
                     } else {
                         delay(10) // No data, wait a bit
                     }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    Log.d(TAG, "Write processor cancelled - connection shutting down")
+                    break
                 } catch (e: Exception) {
                     Log.e(TAG, "Error writing to USB", e)
+                    // Continue processing other messages
                 }
             }
+        }
+    }
+
+    /**
+     * Request USB permission from the user
+     */
+    private fun requestUsbPermission(device: UsbDevice) {
+        val permissionIntent = PendingIntent.getBroadcast(
+            context,
+            0,
+            Intent(ACTION_USB_PERMISSION),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        // Register broadcast receiver to handle permission result
+        val filter = IntentFilter(ACTION_USB_PERMISSION)
+        val permissionReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (ACTION_USB_PERMISSION == intent.action) {
+                    synchronized(this) {
+                        val usbDevice = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                        }
+
+                        val permissionGranted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                        Log.d(TAG, "USB permission result: granted=$permissionGranted, device=${usbDevice?.deviceName ?: "null"}")
+
+                        if (permissionGranted) {
+                            if (usbDevice != null) {
+                                Log.i(TAG, "USB permission granted for device ${usbDevice.deviceName}")
+                                // Connect directly to this specific device
+                                connectToDevice(usbDevice)
+                            } else {
+                                Log.e(TAG, "USB permission granted but device is null")
+                                _connectionState.value = BluetoothInterface.ConnectionState.DISCONNECTED
+                            }
+                        } else {
+                            Log.w(TAG, "USB permission denied for device ${usbDevice?.deviceName ?: "unknown"}")
+                            _connectionState.value = BluetoothInterface.ConnectionState.DISCONNECTED
+                        }
+                    }
+                    // Unregister receiver after use
+                    try {
+                        context.unregisterReceiver(this)
+                    } catch (e: Exception) {
+                        Log.d(TAG, "Permission receiver already unregistered")
+                    }
+                }
+            }
+        }
+
+        context.registerReceiver(permissionReceiver, filter)
+        usbManager?.requestPermission(device, permissionIntent)
+
+        Log.i(TAG, "USB permission request sent for device ${device.deviceName}")
+    }
+
+    /**
+     * Connect directly to a specific USB device (used after permission is granted)
+     */
+    private fun connectToDevice(device: UsbDevice) {
+        try {
+            Log.d(TAG, "Connecting directly to USB device: ${device.deviceName}")
+
+            // Get driver for the specific device
+            val availableDrivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
+            val driver = availableDrivers.find { it.device == device }
+
+            if (driver == null) {
+                Log.e(TAG, "No USB serial driver found for device ${device.deviceName}")
+                _connectionState.value = BluetoothInterface.ConnectionState.DISCONNECTED
+                return
+            }
+
+            Log.d(TAG, "Found driver for device, attempting to open connection")
+            usbConnection = usbManager?.openDevice(device)
+
+            if (usbConnection == null) {
+                Log.e(TAG, "Failed to open USB connection to device ${device.deviceName}")
+                _connectionState.value = BluetoothInterface.ConnectionState.DISCONNECTED
+                return
+            }
+
+            serialPort = driver.ports[0]
+            serialPort?.open(usbConnection)
+            serialPort?.setParameters(BAUD_RATE, DATA_BITS, STOP_BITS, PARITY)
+            // Set DTR and RTS like reference implementation
+            serialPort?.dtr = true
+            serialPort?.rts = true
+
+            Log.i(TAG, "USB serial port configured: ${BAUD_RATE} baud")
+
+            // Start I/O manager
+            ioManager = SerialInputOutputManager(serialPort, this)
+            ioManager?.start()
+
+            // Start write queue processor
+            startWriteProcessor()
+
+            _connectionState.value = BluetoothInterface.ConnectionState.CONNECTED
+
+            // Send wake bytes before notifying connection - matches reference implementation
+            sendWakeSequence()
+
+            Log.i(TAG, "USB connection established successfully")
+
+            // Notify callback that connection is ready
+            callback.onConnect()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error connecting to USB device", e)
+            _connectionState.value = BluetoothInterface.ConnectionState.DISCONNECTED
         }
     }
 }

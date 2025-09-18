@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.geeksville.mesh.MeshProtos as GeneratedMeshProtos
 import com.geeksville.mesh.AdminProtos
 import com.geeksville.mesh.ConfigProtos
+import com.geeksville.mesh.TelemetryProtos
 import com.geeksville.mesh.Portnums
 
 /**
@@ -73,6 +74,7 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
     private val nodeDatabase = ConcurrentHashMap<String, MeshProtos.NodeInfo>()
     private var myNodeInfo: MeshProtos.MyNodeInfo? = null
     private var deviceMetadata: com.geeksville.mesh.MeshProtos.DeviceMetadata? = null
+    private var currentDeviceMetrics: TelemetryProtos.DeviceMetrics? = null
     
     // Configuration storage - Config types
     private var deviceConfig: com.geeksville.mesh.ConfigProtos.Config.DeviceConfig? = null
@@ -234,12 +236,21 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
      */
     fun connectUsb(devicePath: String) {
         Log.i(TAG, "Connecting to USB device: $devicePath")
+        Log.d(TAG, "Context class: ${context.javaClass.simpleName}")
+
         setConnectionState(ConnectionState.CONNECTING)
-        
+
         disconnect() // Disconnect any existing connection
-        
-        usbInterface = UsbSerialInterface(context, devicePath, this)
-        usbInterface?.connect()
+
+        try {
+            Log.d(TAG, "Creating UsbSerialInterface...")
+            usbInterface = UsbSerialInterface(context, devicePath, this)
+            Log.d(TAG, "UsbSerialInterface created successfully, calling connect()")
+            usbInterface?.connect()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating or connecting USB interface", e)
+            setConnectionState(ConnectionState.DISCONNECTED)
+        }
     }
     
     /**
@@ -291,8 +302,26 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
                     }
                 }
             }
+            ConnectionState.CONNECTED -> {
+                Log.i(TAG, "Connected to device, requesting initial configuration")
+                // Request device configuration when first connected
+                sendConfigRequest()
+
+                // Start message polling to receive responses
+                startMessagePolling()
+
+                // Set timeout for receiving device info
+                radioReadyTimeoutJob?.cancel()
+                radioReadyTimeoutJob = scope.launch {
+                    delay(10000) // 10 second timeout
+                    if (_connectionState.value == ConnectionState.CONNECTED) {
+                        Log.w(TAG, "Radio ready timeout - no myInfo received within 10 seconds")
+                        // Don't disconnect, just log the issue
+                    }
+                }
+            }
             else -> {
-                // No special handling for CONNECTING or CONNECTED states
+                // No special handling for CONNECTING state
             }
         }
     }
@@ -768,7 +797,46 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
         // Also notify config manager about potential admin ACK
         configManager?.handleAdminAck(packet.id)
     }
-    
+
+    /**
+     * Handle telemetry message from device (includes DeviceMetrics)
+     */
+    private fun handleTelemetryMessage(packet: MeshProtos.DataPacket) {
+        try {
+            Log.d(TAG, "Parsing telemetry message from 0x${packet.from?.let { it.toLong().and(0xFFFFFFFFL).toString(16) } ?: "null"}")
+
+            val telemetry = TelemetryProtos.Telemetry.parseFrom(packet.bytes)
+            Log.i(TAG, "Received telemetry message, timestamp: ${telemetry.time}")
+
+            // Check if this is device metrics
+            if (telemetry.hasDeviceMetrics()) {
+                val deviceMetrics = telemetry.deviceMetrics
+
+                // Only store metrics from our own device (or if it's our node)
+                myNodeInfo?.let { myInfo ->
+                    if (packet.from == myInfo.myNodeNum) {
+                        currentDeviceMetrics = deviceMetrics
+                        Log.i(TAG, "Updated device metrics - Battery: ${deviceMetrics.batteryLevel}%, Voltage: ${deviceMetrics.voltage}V, Uptime: ${deviceMetrics.uptimeSeconds}s")
+
+                        // Log all available metrics
+                        if (deviceMetrics.hasChannelUtilization()) {
+                            Log.d(TAG, "Channel utilization: ${deviceMetrics.channelUtilization}%")
+                        }
+                        if (deviceMetrics.hasAirUtilTx()) {
+                            Log.d(TAG, "Air utilization TX: ${deviceMetrics.airUtilTx}%")
+                        }
+                    } else {
+                        Log.d(TAG, "Ignoring device metrics from other node: 0x${packet.from?.let { it.toLong().and(0xFFFFFFFFL).toString(16) } ?: "null"}")
+                    }
+                }
+            } else {
+                Log.d(TAG, "Telemetry message does not contain device metrics")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to parse telemetry message: ${e.message}", e)
+        }
+    }
+
     /**
      * Register ATAK message handler
      */
@@ -810,7 +878,14 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
     fun getDeviceMetadata(): com.geeksville.mesh.MeshProtos.DeviceMetadata? {
         return deviceMetadata
     }
-    
+
+    /**
+     * Get current device metrics (battery, voltage, uptime, etc.)
+     */
+    fun getCurrentDeviceMetrics(): TelemetryProtos.DeviceMetrics? {
+        return currentDeviceMetrics
+    }
+
     /**
      * Get current RSSI value from Bluetooth connection
      */
@@ -1180,7 +1255,7 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
                 messagesReceived++
                 Log.d(TAG, "Received packet - Port: ${packet.portNum}, From: ${packet.from?.let { "0x${it.toLong().and(0xFFFFFFFFL).toString(16)}" } ?: "null"}")
                 
-                // Filter for ATAK ports, admin messages, and routing messages
+                // Filter for ATAK ports, admin messages, telemetry, and routing messages
                 when (packet.portNum) {
                     MeshProtos.PORTNUMS_ATAK_PLUGIN -> {
                         Log.i(TAG, "Received ATAK Plugin message")
@@ -1193,6 +1268,10 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
                     MeshProtos.PORTNUMS_ADMIN -> {
                         Log.i(TAG, "Received Admin message")
                         handleAdminMessage(packet)
+                    }
+                    MeshProtos.PORTNUMS_TELEMETRY_APP -> {
+                        Log.i(TAG, "Received Telemetry message")
+                        handleTelemetryMessage(packet)
                     }
                     MeshProtos.PORTNUMS_ROUTING_APP -> {
                         Log.d(TAG, "Received Routing message (potential ACK)")
@@ -1266,7 +1345,7 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
                     Log.i(TAG, "Radio is ready (received myInfo), device configured")
                     radioReadyTimeoutJob?.cancel() // Cancel timeout since we got myInfo
                     configManager?.analyzeTakConfigurationNeeds()
-                   //_connectionState.value = ConnectionState.CONFIGURED
+                    _connectionState.value = ConnectionState.CONFIGURED
                 }
             }
             
@@ -1353,8 +1432,11 @@ class MeshtasticManager(private val context: Context) : RadioCallback {
      * Called when BLE is connected and ready for configuration
      */
     override fun onConnect() {
-        Log.i(TAG, "Bluetooth connected, checking radio state...")
-        
+        Log.i(TAG, "Radio connected, checking radio state...")
+
+        // Update connection state to CONNECTED
+        _connectionState.value = ConnectionState.CONNECTED
+
         // Initialize configuration manager
         configManager = MeshtasticConfigManager(this)
         

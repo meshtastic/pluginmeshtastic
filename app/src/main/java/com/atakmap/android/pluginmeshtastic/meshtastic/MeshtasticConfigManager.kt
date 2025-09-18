@@ -689,6 +689,7 @@ class MeshtasticConfigManager(
                 val lora = config.lora
                 if (!lora.usePreset ||
                     lora.modemPreset != ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_TURBO ||
+                    lora.region != ConfigProtos.Config.LoRaConfig.RegionCode.US ||
                     !lora.txEnabled ||
                     lora.hopLimit != 6) {
                     needsLoraConfig = true
@@ -699,7 +700,7 @@ class MeshtasticConfigManager(
                 needsLoraConfig = true
                 changes.add("LoRa settings")
             }
-            
+
             // Check position config
             if (config.hasPosition()) {
                 val position = config.position
@@ -717,7 +718,7 @@ class MeshtasticConfigManager(
                 needsPositionConfig = true
                 changes.add("Position settings")
             }
-            
+
             // Check other configs as needed...
         } ?: run {
             // No config received, need to set everything

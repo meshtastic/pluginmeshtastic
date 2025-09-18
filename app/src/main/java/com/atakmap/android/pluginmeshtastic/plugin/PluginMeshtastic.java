@@ -359,7 +359,7 @@ public class PluginMeshtastic implements IPlugin,
                 }, DUPLICATE_WINDOW_MS);
             }
 
-            //TODO add this feature back in later
+            // TODO add this feature back in later
 /*
             if (!to.equals("All Chat Rooms") && (!to.equals(mapView.getDeviceCallsign()))) {
                 Log.i(TAG, "Chat message not for us (to=" + to + "), ignoring");

@@ -46,6 +46,7 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
     private MeshtasticBleScanner bleScanner;
     
     private Button scanButton;
+    private Button connectUsbButton;
     private Button disconnectButton;
     private ListView deviceList;
     private TextView statusText;
@@ -58,7 +59,6 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
     private TextView deviceAddress;
     private TextView deviceName;
     private TextView signalStrength;
-    private TextView connectionState;
     private TextView messagesSent;
     private TextView messagesReceived;
     private TextView connectionTime;
@@ -81,7 +81,15 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
     private TextView deviceHasGps;
     private TextView deviceRoles;
     private TextView deviceLastHeard;
-    
+
+    // Device metrics elements
+    private View deviceMetricsCard;
+    private TextView deviceBatteryLevel;
+    private TextView deviceVoltage;
+    private TextView deviceUptime;
+    private TextView deviceChannelUtilization;
+    private TextView deviceAirUtilTx;
+
     private Handler uiHandler;
     private boolean isScanning = false;
     
@@ -167,6 +175,7 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
         
         // Initialize connection tab elements
         scanButton = templateView.findViewById(R.id.btn_scan);
+        connectUsbButton = templateView.findViewById(R.id.btn_connect_usb);
         disconnectButton = templateView.findViewById(R.id.btn_disconnect);
         deviceList = templateView.findViewById(R.id.device_list);
         statusText = templateView.findViewById(R.id.status_text);
@@ -178,7 +187,6 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
         deviceAddress = templateView.findViewById(R.id.device_address);
         deviceName = templateView.findViewById(R.id.device_name);
         signalStrength = templateView.findViewById(R.id.signal_strength);
-        connectionState = templateView.findViewById(R.id.connection_state);
         messagesSent = templateView.findViewById(R.id.messages_sent);
         messagesReceived = templateView.findViewById(R.id.messages_received);
         connectionTime = templateView.findViewById(R.id.connection_time);
@@ -198,7 +206,15 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
         deviceHasGps = templateView.findViewById(R.id.device_has_gps);
         deviceRoles = templateView.findViewById(R.id.device_roles);
         deviceLastHeard = templateView.findViewById(R.id.device_last_heard);
-        
+
+        // Initialize device metrics elements
+        deviceMetricsCard = templateView.findViewById(R.id.device_metrics_card);
+        deviceBatteryLevel = templateView.findViewById(R.id.device_battery_level);
+        deviceVoltage = templateView.findViewById(R.id.device_voltage);
+        deviceUptime = templateView.findViewById(R.id.device_uptime);
+        deviceChannelUtilization = templateView.findViewById(R.id.device_channel_utilization);
+        deviceAirUtilTx = templateView.findViewById(R.id.device_air_util_tx);
+
         // Set up device list adapter
         deviceAdapter = new DeviceListAdapter();
         deviceList.setAdapter(deviceAdapter);
@@ -211,7 +227,12 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
                 startScan();
             }
         });
-        
+
+        // Set up USB connect button
+        connectUsbButton.setOnClickListener(v -> {
+            connectUsb();
+        });
+
         // Set up disconnect button
         disconnectButton.setOnClickListener(v -> {
             meshtasticBridge.disconnect();
@@ -474,7 +495,115 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
             if (deviceLastHeard != null) deviceLastHeard.setText("Last Heard: N/A");
         }
     }
-    
+
+    private void updateDeviceMetrics() {
+        MeshtasticManager.ConnectionState currentState = meshtasticBridge != null ? meshtasticBridge.getConnectionState() : null;
+
+        if (meshtasticBridge == null ||
+            (currentState != MeshtasticManager.ConnectionState.CONNECTED &&
+             currentState != MeshtasticManager.ConnectionState.CONFIGURED)) {
+            // Hide metrics card when not connected
+            Log.d(TAG, "Hiding device metrics card - not connected (state: " + currentState + ")");
+            if (deviceMetricsCard != null) {
+                deviceMetricsCard.setVisibility(View.GONE);
+            }
+            return;
+        }
+
+        // Get device metrics from the bridge
+        try {
+            com.geeksville.mesh.TelemetryProtos.DeviceMetrics metrics = meshtasticBridge.getCurrentDeviceMetrics();
+
+            if (metrics != null) {
+
+                // Show metrics card when data is available
+                if (deviceMetricsCard != null) {
+                    deviceMetricsCard.setVisibility(View.VISIBLE);
+                }
+
+                // Update battery level
+                if (deviceBatteryLevel != null) {
+                    if (metrics.hasBatteryLevel()) {
+                        int batteryLevel = metrics.getBatteryLevel();
+                        String batteryText = "Battery: " + batteryLevel + "%";
+                        if (batteryLevel > 100) {
+                            batteryText += " (Powered)";
+                        }
+                        deviceBatteryLevel.setText(batteryText);
+                    } else {
+                        deviceBatteryLevel.setText("Battery: N/A");
+                    }
+                }
+
+                // Update voltage
+                if (deviceVoltage != null) {
+                    if (metrics.hasVoltage()) {
+                        float voltage = metrics.getVoltage();
+                        deviceVoltage.setText(String.format("Voltage: %.2fV", voltage));
+                    } else {
+                        deviceVoltage.setText("Voltage: N/A");
+                    }
+                }
+
+                // Update uptime
+                if (deviceUptime != null) {
+                    if (metrics.hasUptimeSeconds()) {
+                        int uptimeSeconds = metrics.getUptimeSeconds();
+                        String uptimeText = formatUptime(uptimeSeconds);
+                        deviceUptime.setText("Uptime: " + uptimeText);
+                    } else {
+                        deviceUptime.setText("Uptime: N/A");
+                    }
+                }
+
+                // Update channel utilization
+                if (deviceChannelUtilization != null) {
+                    if (metrics.hasChannelUtilization()) {
+                        float channelUtil = metrics.getChannelUtilization();
+                        deviceChannelUtilization.setText(String.format("Channel Utilization: %.1f%%", channelUtil));
+                    } else {
+                        deviceChannelUtilization.setText("Channel Utilization: N/A");
+                    }
+                }
+
+                // Update air utilization TX
+                if (deviceAirUtilTx != null) {
+                    if (metrics.hasAirUtilTx()) {
+                        float airUtilTx = metrics.getAirUtilTx();
+                        deviceAirUtilTx.setText(String.format("Air Util TX: %.1f%%", airUtilTx));
+                    } else {
+                        deviceAirUtilTx.setText("Air Util TX: N/A");
+                    }
+                }
+            } else {
+                // Hide card if metrics are not available
+                if (deviceMetricsCard != null) {
+                    deviceMetricsCard.setVisibility(View.GONE);
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Error updating device metrics: " + e.getMessage());
+            // Hide card on error
+            if (deviceMetricsCard != null) {
+                deviceMetricsCard.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    private String formatUptime(int uptimeSeconds) {
+        int days = uptimeSeconds / 86400;
+        int hours = (uptimeSeconds % 86400) / 3600;
+        int minutes = (uptimeSeconds % 3600) / 60;
+
+        if (days > 0) {
+            return String.format("%dd %dh %dm", days, hours, minutes);
+        } else if (hours > 0) {
+            return String.format("%dh %dm", hours, minutes);
+        } else {
+            return String.format("%dm", minutes);
+        }
+    }
+
     private void applyChannelPassword(String password) {
         if (password.isEmpty()) {
             Log.d(TAG, "Channel password is empty, skipping PSK configuration");
@@ -612,16 +741,16 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
     
     private void connectToDevice(MeshtasticBleScanner.MeshtasticDevice device) {
         Log.d(TAG, "Connecting to device: " + device.getName() + " (" + device.getAddress() + ")");
-        
+
         // Store device info for status display
         currentDeviceAddress = device.getAddress();
         currentDeviceName = device.getName();
-        
+
         // Also store in preferences for future auto-reconnection using ATAK preferences
         String prefKey = "plugin.meshtastic.last_device_name_" + device.getAddress();
         preferences.set(prefKey, device.getName());
         Log.d(TAG, "Stored device name for future auto-reconnection: " + device.getName());
-        
+
         // Show connecting dialog
         AlertDialog.Builder builder = new AlertDialog.Builder(getMapView().getContext());
         builder.setTitle("Connecting");
@@ -629,18 +758,65 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
         builder.setCancelable(false);
         AlertDialog dialog = builder.create();
         dialog.show();
-        
+
         // Stop scanning
         stopScan();
-        
+
         // Connect to device
         meshtasticBridge.connectBluetooth(device.getAddress());
-        
+
         // Dismiss dialog after a short delay
         uiHandler.postDelayed(() -> {
             dialog.dismiss();
             updateConnectionStatus();
         }, 2000);
+    }
+
+    private void connectUsb() {
+        Log.d(TAG, "Attempting to connect via USB");
+
+        // Check if bridge is properly initialized
+        if (meshtasticBridge == null) {
+            Log.e(TAG, "MeshtasticBridge is null, cannot connect via USB");
+            showError("Plugin not properly initialized. Please restart ATAK.");
+            return;
+        }
+
+        // Store device info for status display (USB doesn't have address/name like Bluetooth)
+        currentDeviceAddress = "USB";
+        currentDeviceName = "USB Device";
+
+        // Show connecting dialog
+        AlertDialog.Builder builder = new AlertDialog.Builder(getMapView().getContext());
+        builder.setTitle("Connecting");
+        builder.setMessage("Connecting via USB...\n\nMake sure your device is connected via USB cable and you have granted USB permissions.");
+        builder.setCancelable(false);
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Stop scanning if active
+        if (isScanning) {
+            stopScan();
+        }
+
+        // Update status to show connecting
+        statusText.setText("Connecting via USB...");
+
+        try {
+            // Connect via USB (empty device path means auto-detect)
+            meshtasticBridge.connectUsb("");
+        } catch (Exception e) {
+            Log.e(TAG, "Error connecting via USB: " + e.getMessage(), e);
+            dialog.dismiss();
+            showError("USB connection failed: " + e.getMessage());
+            return;
+        }
+
+        // Dismiss dialog after a short delay
+        uiHandler.postDelayed(() -> {
+            dialog.dismiss();
+            updateConnectionStatus();
+        }, 3000); // Longer delay for USB connection
     }
     
     private void updateConnectionStatus() {
@@ -660,17 +836,24 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
         String connectionTypeText;
         int statusColor;
         
+        // Determine connection type based on current device info
+        boolean isUsbConnection = "USB".equals(currentDeviceAddress);
+        String connType = isUsbConnection ? "USB Serial" : "Bluetooth LE";
+
         switch (state) {
             case CONNECTED:
                 statusMessage = "Connected";
-                connectionTypeText = "Bluetooth LE";
+                connectionTypeText = connType;
                 statusColor = 0xFF00FF00; // Green
                 disconnectButton.setEnabled(true);
-                
+
                 // Show status tab cards
-                if (signalInfoCard != null) signalInfoCard.setVisibility(View.VISIBLE);
+                if (signalInfoCard != null) {
+                    // Show signal info for Bluetooth, hide for USB (no RSSI)
+                    signalInfoCard.setVisibility(isUsbConnection ? View.GONE : View.VISIBLE);
+                }
                 if (statsCard != null) statsCard.setVisibility(View.VISIBLE);
-                
+
                 // Force device info update when newly connected
                 if (stateChanged) {
                     Log.d(TAG, "State changed to CONNECTED, forcing UI updates");
@@ -679,28 +862,31 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
                     metadataUpdateNeeded = true;
                 }
                 break;
-                
+
             case CONNECTING:
                 statusMessage = "Connecting...";
-                connectionTypeText = "Bluetooth LE (Connecting)";
+                connectionTypeText = connType + " (Connecting)";
                 statusColor = 0xFFFFFF00; // Yellow
                 disconnectButton.setEnabled(false);
-                
+
                 // Hide status tab cards while connecting
                 if (signalInfoCard != null) signalInfoCard.setVisibility(View.GONE);
                 if (statsCard != null) statsCard.setVisibility(View.GONE);
                 break;
-                
+
             case CONFIGURED:
                 statusMessage = "Connected & Configured";
-                connectionTypeText = "Bluetooth LE (Ready)";
+                connectionTypeText = connType + " (Ready)";
                 statusColor = 0xFF00FF00; // Green
                 disconnectButton.setEnabled(true);
-                
+
                 // Show status tab cards
-                if (signalInfoCard != null) signalInfoCard.setVisibility(View.VISIBLE);
+                if (signalInfoCard != null) {
+                    // Show signal info for Bluetooth, hide for USB (no RSSI)
+                    signalInfoCard.setVisibility(isUsbConnection ? View.GONE : View.VISIBLE);
+                }
                 if (statsCard != null) statsCard.setVisibility(View.VISIBLE);
-                
+
                 // Force device info update when newly configured
                 if (stateChanged) {
                     Log.d(TAG, "State changed to CONFIGURED, forcing UI updates");
@@ -795,16 +981,11 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
         if (deviceName != null) {
             deviceName.setText("Name: " + (currentDeviceName != null ? currentDeviceName : "N/A"));
         }
-        
-        if (connectionState != null) {
-            connectionState.setText("State: " + statusMessage);
-            connectionState.setTextColor(statusColor);
-        }
-        
-        // Update signal strength if connected - get actual RSSI value
+
+        // Update signal strength if connected via Bluetooth - skip for USB
         if (signalStrength != null) {
-            if (state == MeshtasticManager.ConnectionState.CONNECTED || 
-                state == MeshtasticManager.ConnectionState.CONFIGURED) {
+            if ((state == MeshtasticManager.ConnectionState.CONNECTED ||
+                 state == MeshtasticManager.ConnectionState.CONFIGURED) && !isUsbConnection) {
                 try {
                     // Throttled RSSI requests to avoid spamming the Bluetooth interface
                     long currentTime = System.currentTimeMillis();
@@ -812,10 +993,10 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
                         meshtasticBridge.requestRssi(); // Trigger a fresh RSSI reading
                         lastRssiRequest = currentTime;
                     }
-                    
+
                     // Always get current cached RSSI value
                     int rssiValue = meshtasticBridge.getCurrentRssi();
-                    
+
                     if (rssiValue < 0) { // RSSI values are negative (e.g., -60 dBm)
                         // Show actual RSSI value
                         signalStrength.setText("RSSI: " + rssiValue + " dBm");
@@ -830,6 +1011,8 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
                     Log.w(TAG, "Failed to get RSSI: " + e.getMessage());
                     signalStrength.setText("RSSI: Unknown");
                 }
+            } else if (isUsbConnection) {
+                signalStrength.setText("RSSI: N/A (USB)");
             } else {
                 signalStrength.setText("RSSI: N/A");
             }
@@ -874,7 +1057,13 @@ public class MeshtasticDropDownReceiver extends DropDownReceiver implements Drop
             updateDeviceMetadata();
             metadataUpdateNeeded = false; // Reset flag after update
         }
-        
+
+        // Update device metrics (always try to update when connected)
+        if (state == MeshtasticManager.ConnectionState.CONNECTED ||
+            state == MeshtasticManager.ConnectionState.CONFIGURED) {
+            updateDeviceMetrics();
+        }
+
         // Update last known connection state and node info status
         lastConnectionState = state;
         lastHadNodeInfo = hasNodeInfo;

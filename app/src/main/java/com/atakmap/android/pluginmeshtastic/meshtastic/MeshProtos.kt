@@ -17,6 +17,7 @@ object MeshProtos {
     const val PORTNUMS_ATAK_FORWARDER = 257
     const val PORTNUMS_ADMIN = 6  // Admin app for configuration
     const val PORTNUMS_ROUTING_APP = 5  // Routing app for routing messages
+    const val PORTNUMS_TELEMETRY_APP = 67  // Telemetry app for device metrics
     
     // Special node addresses
     const val NODENUM_BROADCAST = 0xFFFFFFFF.toInt()

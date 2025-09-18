@@ -159,9 +159,13 @@ class AtakMeshtasticBridge(
      */
     fun initialize() {
         Log.i(TAG, "Initializing ATAK-Meshtastic bridge")
-        
+
+        // Use MapView context for better Android system service access
+        val mapViewContext = com.atakmap.android.maps.MapView.getMapView()?.context ?: context
+        Log.d(TAG, "Using context: ${mapViewContext.javaClass.simpleName}")
+
         // Create and initialize the manager
-        meshtasticManager = MeshtasticManager(context)
+        meshtasticManager = MeshtasticManager(mapViewContext)
         meshtasticManager?.registerAtakMessageHandler(this)
         
         // Set up callback to update device name when NodeInfo is received
@@ -400,9 +404,17 @@ class AtakMeshtasticBridge(
      * Connect to Meshtastic device via USB
      */
     fun connectUsb(devicePath: String = "") {
+        Log.d(TAG, "connectUsb called with devicePath: '$devicePath'")
+
+        if (meshtasticManager == null) {
+            Log.e(TAG, "MeshtasticManager is null, cannot connect USB")
+            return
+        }
+
         autoConnectUsb = true
         autoConnectBluetooth = false
-        
+
+        Log.d(TAG, "Calling meshtasticManager.connectUsb")
         meshtasticManager?.connectUsb(devicePath)
     }
     
@@ -771,7 +783,11 @@ class AtakMeshtasticBridge(
     fun getDeviceMetadata(): com.geeksville.mesh.MeshProtos.DeviceMetadata? {
         return meshtasticManager?.getDeviceMetadata()
     }
-    
+
+    fun getCurrentDeviceMetrics(): com.geeksville.mesh.TelemetryProtos.DeviceMetrics? {
+        return meshtasticManager?.getCurrentDeviceMetrics()
+    }
+
     fun getMyNodeInfo(): MeshProtos.MyNodeInfo? {
         return meshtasticManager?.getMyNodeInfo()
     }
