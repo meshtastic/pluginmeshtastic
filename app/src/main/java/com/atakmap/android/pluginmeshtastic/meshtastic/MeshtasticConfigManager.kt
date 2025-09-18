@@ -688,8 +688,8 @@ class MeshtasticConfigManager(
             if (config.hasLora()) {
                 val lora = config.lora
                 if (!lora.usePreset ||
-                    lora.modemPreset != ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_TURBO ||
-                    lora.region != ConfigProtos.Config.LoRaConfig.RegionCode.US ||
+                    lora.modemPreset != ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST ||
+                    lora.region != ConfigProtos.Config.LoRaConfig.RegionCode.EU_868 ||
                     !lora.txEnabled ||
                     lora.hopLimit != 6) {
                     needsLoraConfig = true
@@ -731,7 +731,7 @@ class MeshtasticConfigManager(
             needsNetworkConfig = true
             changes.add("All device settings (no existing config)")
         }
-        
+
         // Check module configs
         currentModuleConfigs.forEach { (key, moduleConfig) ->
             when {
@@ -768,7 +768,7 @@ class MeshtasticConfigManager(
             )
         }
     }
-    
+
     /**
      * Start selective TAK configuration, only changing settings that need to be updated
      */
@@ -823,7 +823,7 @@ class MeshtasticConfigManager(
             }
         }
     }
-    
+
     /**
      * Send individual admin packets for each configuration type that needs to be changed
      * Split into phases to handle device reboots from critical config changes
@@ -937,14 +937,14 @@ class MeshtasticConfigManager(
     private fun sendLoraConfig(): UInt? {
         Log.i(TAG, "Sending LoRa config packet")
         val loraConfig = ConfigProtos.Config.LoRaConfig.newBuilder()
-            .setModemPreset(ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_TURBO)
+            .setModemPreset(ConfigProtos.Config.LoRaConfig.ModemPreset.SHORT_FAST)
             .setHopLimit(6)
             .setTxEnabled(true)
             .setUsePreset(true)
             .setIgnoreMqtt(true)
             .setConfigOkToMqtt(false)
             .setOverrideDutyCycle(true)
-            .setRegion(ConfigProtos.Config.LoRaConfig.RegionCode.US) // do this last?
+            .setRegion(ConfigProtos.Config.LoRaConfig.RegionCode.EU_868) // do this last?
             .build()
 
         val config = ConfigProtos.Config.newBuilder().setLora(loraConfig).build()
@@ -1125,7 +1125,7 @@ class MeshtasticConfigManager(
             }
         }
     }
-    
+
     /**
      * Disable only modules that are currently enabled and need to be disabled
      */
@@ -1133,15 +1133,15 @@ class MeshtasticConfigManager(
         scope.launch {
             // Check MQTT module
             currentModuleConfigs["mqtt"]?.let { moduleConfig ->
-                if (moduleConfig.hasMqtt() && 
+                if (moduleConfig.hasMqtt() &&
                     (moduleConfig.mqtt.enabled || moduleConfig.mqtt.mapReportingEnabled)) {
-                    
+
                     Log.i(TAG, "Disabling MQTT module")
                     val mqttConfig = ModuleConfigProtos.ModuleConfig.MQTTConfig.newBuilder()
                         .setEnabled(false)
                         .setMapReportingEnabled(false)
                         .build()
-                    
+
                     val mqttModuleConfig = ModuleConfigProtos.ModuleConfig.newBuilder()
                         .setMqtt(mqttConfig)
                         .build()
@@ -1155,19 +1155,19 @@ class MeshtasticConfigManager(
                     delay(100)
                 }
             }
-            
+
             // Check Telemetry module
             currentModuleConfigs["telemetry"]?.let { moduleConfig ->
                 if (moduleConfig.hasTelemetry() &&
                     (moduleConfig.telemetry.deviceUpdateInterval != 0 ||
                      moduleConfig.telemetry.environmentUpdateInterval != 0)) {
-                    
+
                     Log.i(TAG, "Disabling telemetry broadcasts")
                     val telemetryConfig = ModuleConfigProtos.ModuleConfig.TelemetryConfig.newBuilder()
                         .setDeviceUpdateInterval(0)
                         .setEnvironmentUpdateInterval(0)
                         .build()
-                    
+
                     val telemetryModuleConfig = ModuleConfigProtos.ModuleConfig.newBuilder()
                         .setTelemetry(telemetryConfig)
                         .build()
@@ -1181,21 +1181,21 @@ class MeshtasticConfigManager(
                     delay(100)
                 }
             }
-            
+
             Log.i(TAG, "Selective module configuration complete")
         }
     }
-    
+
     /**
      * Request session key for admin operations
      */
     fun requestSessionKey() {
         Log.i(TAG, "Requesting session key for admin operations")
-        
+
         val adminMsg = AdminProtos.AdminMessage.newBuilder()
             .setGetConfigRequest(AdminProtos.AdminMessage.ConfigType.SESSIONKEY_CONFIG)
             .build()
-        
+
         // Create data packet for admin message using the local wrapper
         val dataPacket = MeshProtos.DataPacket(
             to = 0u, // Send to self
@@ -1207,17 +1207,17 @@ class MeshtasticConfigManager(
             wantAck = false,
             hopLimit = 3
         )
-        
+
         // Create ToRadio message using the local wrapper
         val toRadio = MeshProtos.ToRadio(
             packet = dataPacket,
             wantConfigId = null
         )
-        
+
         // Send via MeshtasticManager
         meshtasticManager.sendToRadio(toRadio)
     }
-    
+
     /**
      * Apply TAK configuration with callback
      */
@@ -1225,13 +1225,13 @@ class MeshtasticConfigManager(
         scope.launch {
             try {
                 Log.i(TAG, "Starting TAK configuration")
-                
+
                 // Start the TAK configuration process
                 startConfiguration()
-                
+
                 // Wait for the configuration to complete
                 delay(5000)
-                
+
                 withContext(Dispatchers.Main) {
                     callback(true)
                 }
@@ -1243,7 +1243,7 @@ class MeshtasticConfigManager(
             }
         }
     }
-    
+
     /**
      * Get current device configuration
      */
@@ -1251,26 +1251,26 @@ class MeshtasticConfigManager(
         scope.launch {
             try {
                 Log.i(TAG, "Fetching current device configuration")
-                
+
                 // Clear current config to ensure we get fresh data
                 currentDeviceConfig = null
                 currentModuleConfigs.clear()
-                
+
                 // Request device configuration
                 requestDeviceConfig()
-                
+
                 // Wait a bit for device config
                 delay(1000)
-                
+
                 // Request module configurations
                 requestModuleConfigs()
-                
+
                 // Wait for responses
                 delay(2000)
-                
+
                 // Get the current state
                 val config = buildConfigurationString()
-                
+
                 withContext(Dispatchers.Main) {
                     callback(config)
                 }
@@ -1282,7 +1282,7 @@ class MeshtasticConfigManager(
             }
         }
     }
-    
+
     /**
      * Build configuration string for display
      */
@@ -1290,16 +1290,16 @@ class MeshtasticConfigManager(
         val config = currentDeviceConfig
         val telemetryModule = currentModuleConfigs["telemetry"]
         val mqttModule = currentModuleConfigs["mqtt"]
-        
+
         return if (config != null) {
             val telemetryInterval = if (telemetryModule?.hasTelemetry() == true) {
                 telemetryModule.telemetry.deviceUpdateInterval
             } else 0
-            
+
             val mqttEnabled = if (mqttModule?.hasMqtt() == true) {
                 mqttModule.mqtt.enabled
             } else false
-            
+
             """Current Device Configuration:
 • Role: ${config.device?.role?.name ?: "UNKNOWN"}
 • Rebroadcast: ${config.device?.rebroadcastMode?.name ?: "UNKNOWN"}
@@ -1315,7 +1315,7 @@ class MeshtasticConfigManager(
             "Configuration not available. Tap 'Refresh' to fetch."
         }
     }
-    
+
     /**
      * Request device metadata (can be called externally)
      */
@@ -1323,7 +1323,7 @@ class MeshtasticConfigManager(
         Log.i(TAG, "Manually requesting device metadata")
         requestDeviceMetadata()
     }
-    
+
     /**
      * Get configuration summary
      */
@@ -1332,7 +1332,7 @@ class MeshtasticConfigManager(
         TAK Configuration Applied:
         - Role: TAK
         - Rebroadcast: LOCAL_ONLY
-        - Modem: SHORT_TURBO
+        - Modem: SHORT_FAST
         - Node Broadcasts: DISABLED
         - Position Broadcasts: DISABLED
         - LED/Buzzer/Display: OFF
